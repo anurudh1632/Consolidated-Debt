@@ -141,15 +141,16 @@ function today(){return new Date().toISOString().slice(0,10)}
 function fmt(d){if(!d)return "–";var x=new Date(d+"T00:00:00");return x.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"})}
 function say(t){$("msg").textContent=t;setTimeout(function(){$("msg").textContent=""},3500)}
 
-function pfAmt(i){var p=paid(i);return (i.type==="Short-term loan"&&i.offer>0)?Math.max(i.offer-p,0):Math.max(i.amt-p,0)}
+function hasPen(t){return t==="Short-term loan"||t==="EMI loan"}
+function pfAmt(i){var p=paid(i);return (hasPen(i.type)&&i.offer>0)?Math.max(i.offer-p,0):Math.max(i.amt-p,0)}
 function prioSel(it){var v=it.prio||2;return '<select class="pr p'+v+'" data-prio="'+it.id+'" aria-label="Priority">'+[["1","High"],["2","Medium"],["3","Low"]].map(function(o){return '<option value="'+o[0]+'"'+(String(v)===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select>'}
-function offerLine(it,p){if(it.type!=="Short-term loan")return "";var o=it.offer||0,info="";if(o>0){var ob=Math.max(o-p,0);info=" · "+(ob>0?inr(ob)+" left without penalty":"repayment amount fully paid")+" · penalty "+inr(Math.max(it.amt-o,0))}return '<small class="offer">Sanctioned ₹ <input class="of" type="number" min="0" step="any" value="'+(it.sanc||"")+'" placeholder="add" data-sanc="'+it.id+'" aria-label="Sanctioned amount"> · Repayment (no penalty) ₹ <input class="of" type="number" min="0" step="any" value="'+(o||"")+'" placeholder="add" data-offer="'+it.id+'" aria-label="Repayment amount without penalty">'+info+'</small>'}
+function offerLine(it,p){if(!hasPen(it.type))return "";var o=it.offer||0,info="";if(o>0){var ob=Math.max(o-p,0);info=" · "+(ob>0?inr(ob)+" left without penalty":"repayment amount fully paid")+" · penalty "+inr(Math.max(it.amt-o,0))}return '<small class="offer">Sanctioned ₹ <input class="of" type="number" min="0" step="any" value="'+(it.sanc||"")+'" placeholder="add" data-sanc="'+it.id+'" aria-label="Sanctioned amount"> · Repayment (no penalty) ₹ <input class="of" type="number" min="0" step="any" value="'+(o||"")+'" placeholder="add" data-offer="'+it.id+'" aria-label="Repayment amount without penalty">'+info+'</small>'}
 function render(){
   if(view!=="All"&&view!=="Me"&&!others.hasOwnProperty(view))view="All";
   var all=items.filter(function(i){return view==="All"||(i.owner||"Me")===view}),sf=view==="All"?funds+sumOthers():view==="Me"?funds:(others[view]||0),list=all.filter(function(i){return filter==="All"||i.type===filter}).sort(function(a,b){var ad=a.amt-paid(a)<=0,bd=b.amt-paid(b)<=0;if(ad!==bd)return ad?1:-1;if(!!a.pf!==!!b.pf)return a.pf?-1:1;if((a.prio||2)!==(b.prio||2))return (a.prio||2)-(b.prio||2);return (a.due||"9999").localeCompare(b.due||"9999")});
   var owed=0,pd=0,pft=0,pfn=0;all.forEach(function(i){owed+=i.amt;pd+=paid(i);if(i.pf){var a=pfAmt(i);if(a>0){pft+=a;pfn++}}});
   var left=sf-pd;var t='<div class="tot big"><span>Money received</span><b>'+inr(sf)+'</b></div><div class="tot big"><span>Paid out so far</span><b>'+inr(pd)+'</b></div><div class="tot big main"><span>Funds left</span><b style="color:'+(left<0?'var(--warn)':'var(--ok)')+'">'+inr(left)+'</b></div><div class="tot big"><span>Debt still to pay</span><b>'+inr(owed-pd)+'</b></div><div class="tot big"><span>Left after all debts cleared</span><b>'+inr(sf-owed)+'</b></div><div class="tot big pfc"><span>Pay-first total ('+pfn+' loan'+(pfn===1?'':'s')+')</span><b>'+inr(pft)+'</b></div><div class="tot big pfc"><span>'+(left-pft<0?'Short by (after pay-first)':'Left after pay-first')+'</span><b style="color:'+(left-pft<0?'var(--warn)':'var(--ok)')+'">'+inr(Math.abs(left-pft))+'</b></div>';
-  TYPES.slice(1).forEach(function(ty){var r=0,s=0,ob=0,sc=0;all.forEach(function(i){if(i.type===ty){sc+=i.sanc||0;r+=i.amt;s+=paid(i);ob+=i.offer>0?Math.max(i.offer-paid(i),0):Math.max(i.amt-paid(i),0)}});t+='<div class="tot"><h3>'+ty+'</h3><div class="ln">Owed <em>'+inr(r)+'</em></div><div class="ln">Paid <em>'+inr(s)+'</em></div><div class="ln">Remaining <em>'+inr(r-s)+'</em></div>'+(ty==="Short-term loan"?'<div class="ln">Sanctioned <em>'+inr(sc)+'</em></div><div class="ln">Remaining without penalty <em>'+inr(ob)+'</em></div>':'')+'</div>'});
+  TYPES.slice(1).forEach(function(ty){var r=0,s=0,ob=0,sc=0;all.forEach(function(i){if(i.type===ty){sc+=i.sanc||0;r+=i.amt;s+=paid(i);ob+=i.offer>0?Math.max(i.offer-paid(i),0):Math.max(i.amt-paid(i),0)}});t+='<div class="tot"><h3>'+ty+'</h3><div class="ln">Owed <em>'+inr(r)+'</em></div><div class="ln">Paid <em>'+inr(s)+'</em></div><div class="ln">Remaining <em>'+inr(r-s)+'</em></div>'+(hasPen(ty)?'<div class="ln">Sanctioned <em>'+inr(sc)+'</em></div><div class="ln">Remaining without penalty <em>'+inr(ob)+'</em></div>':'')+'</div>'});
   $("totals").innerHTML=t;
   var names=Object.keys(others);$("views").hidden=!names.length;
   $("views").innerHTML=names.length?["All","Me"].concat(names).map(function(v){return '<button type="button" data-view="'+v+'" aria-pressed="'+(v===view)+'">'+(v==="All"?"Combined":v==="Me"?"My loans":esc(v))+'</button>'}).join(""):"";
@@ -157,7 +158,7 @@ function render(){
   $("tfoot").innerHTML="";
   if(!list.length){$("rows").innerHTML='<tr><td colspan="9" class="empty">Nothing here yet. Fill in the form above and choose Add row.</td></tr>';return}
   var ta=0,tp=0,tb=0,tw=0;list.forEach(function(i){var p=paid(i);ta+=i.amt;tp+=p;tb+=Math.max(i.amt-p,0);tw+=i.offer>0?Math.max(i.offer-p,0):Math.max(i.amt-p,0)});
-  $("tfoot").innerHTML='<tr><td></td><td>Total · '+filter+' ('+list.length+')</td><td class="n">'+inr(ta)+'</td><td class="n">'+inr(tp)+'</td><td class="n">'+inr(tb)+'</td><td colspan="4">'+(filter==="Short-term loan"?"Remaining without penalty: "+inr(tw):"")+'</td></tr>';
+  $("tfoot").innerHTML='<tr><td></td><td>Total · '+filter+' ('+list.length+')</td><td class="n">'+inr(ta)+'</td><td class="n">'+inr(tp)+'</td><td class="n">'+inr(tb)+'</td><td colspan="4">'+(hasPen(filter)?"Remaining without penalty: "+inr(tw):"")+'</td></tr>';
   $("rows").innerHTML=list.map(function(it){
     var p=paid(it),bal=Math.max(it.amt-p,0),pct=Math.min(100,p/it.amt*100);
     var late=bal>0&&it.due&&it.due<today();
@@ -169,12 +170,12 @@ function render(){
     return h}).join("");
 }
 
-function togOffer(){var st=$("type").value==="Short-term loan";$("amtWrap").hidden=st;[].forEach.call(document.querySelectorAll(".st"),function(l){l.hidden=!st});$("amt").required=!st;$("sanc").required=st;$("offer").required=st;$("pen").required=st}
+function togOffer(){var st=hasPen($("type").value);$("amtWrap").hidden=st;[].forEach.call(document.querySelectorAll(".st"),function(l){l.hidden=!st});$("amt").required=!st;$("sanc").required=st;$("offer").required=st;$("pen").required=st}
 $("type").addEventListener("change",togOffer);togOffer();
 function endEdit(){editId=null;$("f").reset();$("pre").disabled=false;$("go").textContent="Add row";$("cancel").hidden=true;togOffer()}
 function startEdit(id){
   var it=items.filter(function(i){return String(i.id)===String(id)})[0];if(!it)return;
-  editId=it.id;var st=it.type==="Short-term loan";
+  editId=it.id;var st=hasPen(it.type);
   $("type").value=it.type;$("prio").value=String(it.prio||2);$("name").value=it.name;$("due").value=it.due||"";$("emi").value=it.emi||"";$("note").value=it.note||"";
   if(st){$("pen").value=it.amt;$("offer").value=it.offer||"";$("sanc").value=it.sanc||"";$("amt").value=""}else{$("amt").value=it.amt;$("pen").value="";$("offer").value="";$("sanc").value=""}
   $("pre").value="";$("pre").disabled=true;togOffer();$("go").textContent="Save changes";$("cancel").hidden=false;
@@ -183,7 +184,7 @@ function startEdit(id){
 $("cancel").onclick=endEdit;
 $("f").addEventListener("submit",function(e){
   e.preventDefault();
-  var st=$("type").value==="Short-term loan",amt=parseFloat(st?$("pen").value:$("amt").value),pre=parseFloat($("pre").value)||0;
+  var st=hasPen($("type").value),amt=parseFloat(st?$("pen").value:$("amt").value),pre=parseFloat($("pre").value)||0;
   if(!(amt>0)){return}
   if(pre>amt)pre=amt;
   var rec={id:Date.now()+Math.floor(Math.random()*1000),type:$("type").value,prio:parseInt($("prio").value)||2,offer:st?Math.min(parseFloat($("offer").value)||0,amt):0,sanc:st?(parseFloat($("sanc").value)||0):0,name:$("name").value.trim(),amt:amt,due:$("due").value,emi:parseFloat($("emi").value)||0,note:$("note").value.trim(),pays:pre>0?[{amt:pre,date:today()}]:[]};
